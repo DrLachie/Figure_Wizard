@@ -76,7 +76,7 @@ if(DIC_Channel>=0){
 	Stack.setPosition(1, slices/2, 1);
 }
 makeRectangle(width/2 - MAIN_ROI_SIZE/2, height/2 - MAIN_ROI_SIZE/2, MAIN_ROI_SIZE, MAIN_ROI_SIZE);
-//waitForUser("Main ROI", "Move the ROI to wherever you want it") ;
+waitForUser("Main ROI", "Move the ROI to wherever you want it") ;
 run("Duplicate...", "title=Allz_Allc_LargeROI duplicate");//channels=1-4 slices=1-30");
 close(fname);
 		
@@ -88,7 +88,7 @@ if(Green_Channel>=0){
 	//If theres no Green just find the thing on channel 1
 	Stack.setPosition(1, slices/2, 1);
 }
-//waitForUser("Select Plane", "Select \"Best\" Plane") ;
+waitForUser("Select Plane", "Select \"Best\" Plane") ;
 		
 Stack.getPosition(channel,best_slice,time); 
 run("Duplicate...", "title=1z_Allc_LargeROI duplicate channels=1-4 slices="+best_slice);
@@ -101,11 +101,85 @@ if(nPANELS>3){make_panel(PANEL4,"1z_Allc_LargeROI",4);}
 
 if(DO_SCALEBAR){
 	selectWindow("Panel_"+nPANELS);
-	run("Scale Bar...", "width=1 height=4 font=14 color=White background=None location=[Lower Right] hide");
+	//Put the scalebar on the right of the last image if it doesn't have an inset
+	if(nPANELS<4 && DO_INSET){
+		run("Scale Bar...", "width=1 height=4 font=14 color=White background=None location=[Lower Left] hide");
+	}else{
+		run("Scale Bar...", "width=1 height=4 font=14 color=White background=None location=[Lower Right] hide");
+	}
 //	print("Doin' a scalebar");
 }
 
+if(DO_INSET){
+	selectWindow("1z_Allc_LargeROI");
+	makeRectangle(MAIN_ROI_SIZE/2 - INSET_ROI_SIZE/2, MAIN_ROI_SIZE/2 - INSET_ROI_SIZE/2, INSET_ROI_SIZE, INSET_ROI_SIZE);
+
+		run("Colors...", "foreground=white background=black selection=yellow"); //add to menu?
+		run("Line Width...", "line=3");//add to menu?
+		setTool("rectangle");
+		waitForUser("Inset ROI", "Move the ROI to wherever you want it") ;
+		Roi.getBounds(roi_x,roi_y,roi_w,roi_h);
+
+		//Inset for Panel 1
+		selectWindow("Panel_1");
+		makeRectangle(roi_x, roi_y, roi_w, roi_h);
+		run("Duplicate...", "title=[zoomed_panel1] duplicate");
+		run("Scale...", "x=2 y=2 interpolation=None average process create");
+		selectWindow("Panel_1");
+		run("Select None");
+		roi_pos = parseInt(MAIN_ROI_SIZE)-(2.0*parseInt(INSET_ROI_SIZE))-8;
+		
+		run("Add Image...", "image=zoomed_panel1-1 x="+roi_pos+" y="+roi_pos+" opactiy=100");
+		run("Flatten");
+		drawRect(roi_pos,roi_pos,(parseInt(INSET_ROI_SIZE)*2) + 1 ,(parseInt(INSET_ROI_SIZE)*2));
+		close("*zoom*");
+		close("Panel_1");
+		selectWindow("Panel_1-1");
+		rename("Panel_1");
+
+		//Inset for Panel 2
+		if(nPANELS>1){
+			selectWindow("Panel_2");
+			makeRectangle(roi_x, roi_y, roi_w, roi_h);
+			run("Duplicate...", "title=[zoomed_panel2] duplicate");
+			run("Scale...", "x=2 y=2 interpolation=None average process create");
+			selectWindow("Panel_2");
+			run("Select None");
+			roi_pos = parseInt(MAIN_ROI_SIZE)-(2.0*parseInt(INSET_ROI_SIZE))-8;
+			
+			run("Add Image...", "image=zoomed_panel2-1 x="+roi_pos+" y="+roi_pos+" opactiy=100");
+			run("Flatten");
+			drawRect(roi_pos,roi_pos,(parseInt(INSET_ROI_SIZE)*2) + 1 ,(parseInt(INSET_ROI_SIZE)*2));
+			close("*zoom*");
+			close("Panel_2");
+			selectWindow("Panel_2-1");
+			rename("Panel_2");
+		}
+
+		//Inset for Panel 3
+		if(nPANELS>2){
+			selectWindow("Panel_3");
+			makeRectangle(roi_x, roi_y, roi_w, roi_h);
+			run("Duplicate...", "title=[zoomed_panel3] duplicate");
+			run("Scale...", "x=2 y=2 interpolation=None average process create");
+			selectWindow("Panel_3");
+			run("Select None");
+			roi_pos = parseInt(MAIN_ROI_SIZE)-(2.0*parseInt(INSET_ROI_SIZE))-8;
+			
+			run("Add Image...", "image=zoomed_panel3-1 x="+roi_pos+" y="+roi_pos+" opactiy=100");
+			run("Flatten");
+			drawRect(roi_pos,roi_pos,(parseInt(INSET_ROI_SIZE)*2) + 1 ,(parseInt(INSET_ROI_SIZE)*2));
+			close("*zoom*");
+			close("Panel_3");
+			selectWindow("Panel_3-1");
+			rename("Panel_3");
+		}
+}		
+
 combine_panels_and_montage();
+
+close("Panel*");
+close("*z_*");
 
 if(DO_BURN_FILENAME){
 	EXP_TITLE = fname;
@@ -118,6 +192,7 @@ if(DO_BURN_FILENAME){
 
 
 
+
 /* *************************************************************************
  * 
  *  	FUNCTIONS
@@ -127,6 +202,20 @@ if(DO_BURN_FILENAME){
  */
 
  function Channel_Setup_Menu(number_of_channels){
+
+ 	/* HELP for first menu */
+  help = "<html>"
+     +"<h3>Figure Wizard Help</h3>"
+     +"<A HREF=\"mailto:whitehead@wehi.edu.au\">whitehead@wehi.edu.au</A>"
+     +"<BR><HR><BR>"
+     +"<h3> Setup channel options </h3><BR>"
+     //+"<font size=+1>
+     +"In this menu, select which colours to make your channels.<br>"
+     +"Note that this will just apply a false colourmap, no checking<BR>"
+     +"is done to ensure the colours match the data.<BR>"
+     +"<BR><HR><BR>"
+     +"Also select the number of panels for your montage. <BR>"
+     +"</font>";
 
 	print("number_of_channels = " + number_of_channels);
 	choiceArray = newArray("Red", "Green", "Blue", "Grays", "NA"); 	
@@ -142,6 +231,9 @@ if(DO_BURN_FILENAME){
 	}
 
 	Dialog.addNumber("Number of montage panels",4,0,2,"");
+	//Dialog.addHelp("http://en.wikipedia.org/wiki/Special:Random");
+	Dialog.addHelp(help);
+
 		
 	Dialog.show();
 
@@ -152,10 +244,28 @@ if(DO_BURN_FILENAME){
 		C4_STRING=Dialog.getChoice();
 	}
 	nPANELS = Dialog.getNumber();
-	Dialog.addHelp("http://en.wikipedia.org/wiki/Special:Random");
+	
 }
 
   function Panel_Setup_Menu(number_of_panels,number_of_channels){
+
+	/* HELP for second menu */
+  	  help = "<html>"
+	     +"<h3>Figure Wizard Help</h3>"
+	     +"<A HREF=\"mailto:whitehead@wehi.edu.au\">whitehead@wehi.edu.au</A>"
+	     +"<BR><HR><BR>"
+	     +"<h3> Setup montage options </h3><BR>"
+	     +"Experiment Title will be burned onto the image if you select the <BR>"
+	     +"\"Generate Montages with Filenames\" option.<BR><BR>"
+	     +"\"Generage Output Montage\" - not sure why I left this optional...<BR><BR>"
+	     +"\"Generate Montage with Inset\" - Put a zoomed in section in the bottom right<BR>"
+	     +"of the first 3 panels. 4th panel is generally transmitted, so inset is not <BR>"
+	     +"currently implemented for the last panel of a 4 panel montage<BR><BR>"
+	     +"\"Add scalebar\" will add a scalebar to the rightmost panel, if that panel has an <BR>"
+	     +"inset, the scalebar will be on the bottom left, otherwise bottom right.<BR><BR>"
+	     +"Panel options are single channels, or any combination of the available channels<BR>"
+	     +"Based on the metadata.<BR>"
+	     +"</font>";
 
 	if(nImages==1){
 		fname=getInfo("image.filename");
@@ -191,7 +301,8 @@ if(DO_BURN_FILENAME){
 	  	Dialog.setInsets(0, 40, 0);
 		Dialog.addNumber("Scalebar size (um)",1);
   	Dialog.addMessage("");
-	Dialog.addHelp("http://en.wikipedia.org/wiki/Special:Random");
+	//Dialog.addHelp("http://en.wikipedia.org/wiki/Special:Random");
+	Dialog.addHelp(help);
 
 	Dialog.addChoice("Panel 1",panel_choices,"C1");
 	if(number_of_panels>1){
@@ -261,8 +372,7 @@ function read_config(config_fpath){
 	C2_STRING = config_options[17];
 	C3_STRING = config_options[18];
 	C4_STRING = config_options[19];
-	print(C4_STRING);
-	print(config_options[19]);
+	
 
 }
 
@@ -362,3 +472,4 @@ function combine_panels_and_montage(){
 	run("Make Montage...", "columns="+nPANELS+" rows=1 scale=1 first=1 last="+nPANELS+" increment=1 border=6 font=12");	
 	close("Concatenated Stacks");
 }
+
