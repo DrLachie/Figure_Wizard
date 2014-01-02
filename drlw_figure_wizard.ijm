@@ -26,6 +26,15 @@ var ADJUST_CONTRAST_MANUALLY = 1;
 
 var fs = File.separator();
 
+//Check version number
+version = getVersion();
+print(version);
+if(version < "1.48h"){
+	exit("Macro requires version 1.48j or greater\n\n Update ImageJ and try again"); 
+}
+
+
+
 
 
 //At the moment, just runs on a single file that you open here
