@@ -22,7 +22,7 @@ var C1_STRING="Green";
 var C2_STRING="Red";
 var C3_STRING="Blue";
 var C4_STRING="DummyGrays";
-
+var ADJUST_CONTRAST_MANUALLY = 1;
 
 var fs = File.separator();
 
@@ -38,7 +38,6 @@ Ext.isThisType(fpath, thisType)
 if(thisType=="true"){
 	Ext.setId(fpath);
 	Ext.getSizeC(nCHANNELS);
-	print(nCHANNELS+ " channels in " + fpath);
 }else{
 	showStatus("Why are you looking up here?");s
 	exit("Fatal Error - Not a supported file format\n\nExiting macro");
@@ -68,7 +67,7 @@ fname = getInfo("image.filename");
 getDimensions(width,height,channels,slices,frames);
 
 DIC_Channel = Get_Channel("Grays");
-print(DIC_Channel);
+
 if(DIC_Channel>=0){
 	Stack.setPosition(DIC_Channel, slices/2, 1);
 }else{
@@ -93,6 +92,29 @@ waitForUser("Select Plane", "Select \"Best\" Plane") ;
 Stack.getPosition(channel,best_slice,time); 
 run("Duplicate...", "title=1z_Allc_LargeROI duplicate channels=1-4 slices="+best_slice);
 
+//Adjust contrast of each channel (if requested in the menu)
+if(ADJUST_CONTRAST_MANUALLY){
+	Stack.getDimensions(x,x,chan,x,x);
+	contrast_string = "";
+	for(l=1;l<=chan;l++){
+		Stack.setChannel(l);
+		resetMinAndMax();
+		getMinAndMax(min_before,max_before);
+		run("Brightness/Contrast...");
+		waitForUser("Adjust brightness/contrast on channel "+l);
+		getMinAndMax(min_after,max_after);
+		contrast_string = contrast_string + "Channel "+l+" oldmin/newmin=" +min_before+"/"+min_after+ " oldmax/newmax="+max_before+"/"+max_after+"\n\n";
+	}
+	//record the changes made
+	write_contrast_changes(fpath,fname,contrast_string);
+}else{
+	//otherwise just to auto-min/max scaling
+	Stack.getDimensions(x,x,chan,x,x);
+	for(l=1;l<=chan;l++){
+		Stack.setChannel(l);
+		resetMinAndMax();
+	}
+}
 
 make_panel(PANEL1,"1z_Allc_LargeROI",1);
 if(nPANELS>1){make_panel(PANEL2,"1z_Allc_LargeROI",2);}
@@ -107,7 +129,7 @@ if(DO_SCALEBAR){
 	}else{
 		run("Scale Bar...", "width=1 height=4 font=14 color=White background=None location=[Lower Right] hide");
 	}
-//	print("Doin' a scalebar");
+
 }
 
 if(DO_INSET){
@@ -127,7 +149,7 @@ if(DO_INSET){
 		run("Scale...", "x=2 y=2 interpolation=None average process create");
 		selectWindow("Panel_1");
 		run("Select None");
-		roi_pos = parseInt(MAIN_ROI_SIZE)-(2.0*parseInt(INSET_ROI_SIZE))-8;
+		roi_pos = parseInt(MAIN_ROI_SIZE)-(2.0*parseInt(INSET_ROI_SIZE));
 		
 		run("Add Image...", "image=zoomed_panel1-1 x="+roi_pos+" y="+roi_pos+" opactiy=100");
 		run("Flatten");
@@ -145,7 +167,7 @@ if(DO_INSET){
 			run("Scale...", "x=2 y=2 interpolation=None average process create");
 			selectWindow("Panel_2");
 			run("Select None");
-			roi_pos = parseInt(MAIN_ROI_SIZE)-(2.0*parseInt(INSET_ROI_SIZE))-8;
+			roi_pos = parseInt(MAIN_ROI_SIZE)-(2.0*parseInt(INSET_ROI_SIZE));
 			
 			run("Add Image...", "image=zoomed_panel2-1 x="+roi_pos+" y="+roi_pos+" opactiy=100");
 			run("Flatten");
@@ -164,7 +186,7 @@ if(DO_INSET){
 			run("Scale...", "x=2 y=2 interpolation=None average process create");
 			selectWindow("Panel_3");
 			run("Select None");
-			roi_pos = parseInt(MAIN_ROI_SIZE)-(2.0*parseInt(INSET_ROI_SIZE))-8;
+			roi_pos = parseInt(MAIN_ROI_SIZE)-(2.0*parseInt(INSET_ROI_SIZE));
 			
 			run("Add Image...", "image=zoomed_panel3-1 x="+roi_pos+" y="+roi_pos+" opactiy=100");
 			run("Flatten");
@@ -217,7 +239,7 @@ if(DO_BURN_FILENAME){
      +"Also select the number of panels for your montage. <BR>"
      +"</font>";
 
-	print("number_of_channels = " + number_of_channels);
+	//print("number_of_channels = " + number_of_channels);
 	choiceArray = newArray("Red", "Green", "Blue", "Grays", "NA"); 	
  	Dialog.create("Initial Setup");
  	Dialog.addMessage("Setup channel numbers and colours nb: Grays==DIC");
@@ -263,6 +285,8 @@ if(DO_BURN_FILENAME){
 	     +"currently implemented for the last panel of a 4 panel montage<BR><BR>"
 	     +"\"Add scalebar\" will add a scalebar to the rightmost panel, if that panel has an <BR>"
 	     +"inset, the scalebar will be on the bottom left, otherwise bottom right.<BR><BR>"
+	     +"\"Adjust Contrast Manually\" Will allow you to alter the brightness and contrast of each<BR>"
+	     +"channel before creating the montage panels. Changes will be recorded in a text file.<BR><BR>"
 	     +"Panel options are single channels, or any combination of the available channels<BR>"
 	     +"Based on the metadata.<BR>"
 	     +"</font>";
@@ -300,6 +324,7 @@ if(DO_BURN_FILENAME){
   	Dialog.addCheckbox("Add scalebar", true);
 	  	Dialog.setInsets(0, 40, 0);
 		Dialog.addNumber("Scalebar size (um)",1);
+	Dialog.addCheckbox("Adjust contrast manually", false);
   	Dialog.addMessage("");
 	//Dialog.addHelp("http://en.wikipedia.org/wiki/Special:Random");
 	Dialog.addHelp(help);
@@ -324,6 +349,7 @@ if(DO_BURN_FILENAME){
   	DO_DIC_INSET = Dialog.getCheckbox();
   	DO_BURN_FILENAME = Dialog.getCheckbox();
   	DO_SCALEBAR = Dialog.getCheckbox();
+  	ADJUST_CONTRAST_MANUALLY = Dialog.getCheckbox();
   	SCALEBAR_SIZE = Dialog.getNumber();
 
 	PANEL1 = Dialog.getChoice();
@@ -339,18 +365,27 @@ if(DO_BURN_FILENAME){
   }
 
 
+function write_contrast_changes(fpath,fname,string){
+	contrast_fpath = File.getParent(fpath);
+	contrast_fpath = contrast_fpath + fs + fname+"_contrast.txt";
+	con = File.open(contrast_fpath);
+	print(con, string);
+	File.close(con);
+}
+
+
 function write_config(fpath){
 	config_fpath = File.getParent(fpath);
 	config_fpath = config_fpath + fs + "config.txt";
 	cfg = File.open(config_fpath);
-	print(cfg, nCHANNELS + " " + nPANELS + " " + EXP_TITLE+" "+DO_MONTAGE+" "+MAIN_ROI_SIZE+" "+DO_INSET+" "+INSET_ROI_SIZE+" "+DO_DIC_INSET+" "+DO_BURN_FILENAME+" "+DO_SCALEBAR+" "+SCALEBAR_SIZE+" "+CLOSE_ALL_AT_END+" "+PANEL1+" "+PANEL2+" "+PANEL3+" "+PANEL4+" "+ C1_STRING + " "+ C2_STRING + " " + C3_STRING + " " + C4_STRING +" ");
+	print(cfg, nCHANNELS + " " + nPANELS + " " + EXP_TITLE+" "+DO_MONTAGE+" "+MAIN_ROI_SIZE+" "+DO_INSET+" "+INSET_ROI_SIZE+" "+DO_DIC_INSET+" "+DO_BURN_FILENAME+" "+DO_SCALEBAR+" "+SCALEBAR_SIZE+" "+CLOSE_ALL_AT_END+" "+PANEL1+" "+PANEL2+" "+PANEL3+" "+PANEL4+" "+ C1_STRING + " "+ C2_STRING + " " + C3_STRING + " " + C4_STRING +" " +ADJUST_CONTRAST_MANUALLY+" ");
 	File.close(cfg);
 }
 
 function read_config(config_fpath){
 
 	config_options = split(File.openAsString(config_fpath)," ");
-	Array.print(config_options);
+//	Array.print(config_options);
 
 	nCHANNELS = config_options[0];
 	nPANELS = config_options[1];
@@ -372,8 +407,7 @@ function read_config(config_fpath){
 	C2_STRING = config_options[17];
 	C3_STRING = config_options[18];
 	C4_STRING = config_options[19];
-	
-
+	ADJUST_CONTRAST_MANUALLY = config_options[20];
 }
 
 function setup_config(fpath){
@@ -401,7 +435,7 @@ function make_panel(panel_string,imagelabel,Panel_Number){
 	run("Split Channels");
 	if(channels.length==1){
 		selectWindow(channels[0]+"-temp_panel");
-		resetMinAndMax();
+	//	resetMinAndMax();
 		Apply_LUT(channels[0]);
 		run("Duplicate...", "title=Panel_"+Panel_Number);
 		run("RGB Color");
@@ -409,10 +443,10 @@ function make_panel(panel_string,imagelabel,Panel_Number){
 	}
 	if(channels.length==2){
 		selectWindow(channels[0]+"-temp_panel");
-		resetMinAndMax();
+	//	resetMinAndMax();
 		Apply_LUT(channels[0]);
 		selectWindow(channels[1]+"-temp_panel");
-		resetMinAndMax();
+	//	resetMinAndMax();
 		Apply_LUT(channels[1]);
 		run("Merge Channels...", "c1="+channels[0]+"-temp_panel c2="+channels[1]+"-temp_panel create keep");
 		run("RGB Color");
@@ -421,13 +455,13 @@ function make_panel(panel_string,imagelabel,Panel_Number){
 	}
 	if(channels.length==3){
 		selectWindow(channels[0]+"-temp_panel");
-		resetMinAndMax();
+	//	resetMinAndMax();
 		Apply_LUT(channels[0]);
 		selectWindow(channels[1]+"-temp_panel");
-		resetMinAndMax();
+	//	resetMinAndMax();
 		Apply_LUT(channels[1]);
 		selectWindow(channels[2]+"-temp_panel");
-		resetMinAndMax();
+	//	resetMinAndMax();
 		Apply_LUT(channels[2]);
 		run("Merge Channels...", "c1="+channels[0]+"-temp_panel c2="+channels[1]+"-temp_panel c3="+channels[2]+"-temp_panel create keep");
 		run("RGB Color");
@@ -436,18 +470,18 @@ function make_panel(panel_string,imagelabel,Panel_Number){
 	}
 	if(channels.length==4){
 		selectWindow(channels[0]+"-temp_panel");
-		resetMinAndMax();
+	//	resetMinAndMax();
 		Apply_LUT(channels[0]);
 		selectWindow(channels[1]+"-temp_panel");
-		resetMinAndMax();
+	//	resetMinAndMax();
 		Apply_LUT(channels[1]);
 		selectWindow(channels[2]+"-temp_panel");
-		resetMinAndMax();
+	//	resetMinAndMax();
 		Apply_LUT(channels[2]);
 		selectWindow(channels[3]+"-temp_panel");
-		resetMinAndMax();
+	//	resetMinAndMax();
 		Apply_LUT(channels[3]);
-		run("Merge Channels...", "c1="+channels[0]+"-temp_panel c2="+channels[1]+"-temp_panel c3="+channels[2]+" c4="+channels[3]+"-temp_panel create keep");
+		run("Merge Channels...", "c1="+channels[0]+"-temp_panel c2="+channels[1]+"-temp_panel c3="+channels[2]+"-temp_panel c4="+channels[3]+"-temp_panel create keep");
 		run("RGB Color");
 		rename("Panel_"+Panel_Number);
 		close("C*-temp_panel");
@@ -473,3 +507,6 @@ function combine_panels_and_montage(){
 	close("Concatenated Stacks");
 }
 
+function get_scaling_info(imageName){
+	selectWindow(imageName);
+}	
