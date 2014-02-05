@@ -23,6 +23,7 @@ var C2_STRING="Red";
 var C3_STRING="Blue";
 var C4_STRING="DummyGrays";
 var ADJUST_CONTRAST_MANUALLY = 1;
+var DAVE_ROTATION = false;
 
 var fs = File.separator();
 
@@ -32,10 +33,6 @@ print(version);
 if(version < "1.48h"){
 	exit("Macro requires version 1.48j or greater\n\n Update ImageJ and try again"); 
 }
-
-
-
-
 
 //At the moment, just runs on a single file that you open here
 //eventually I'll put the batch processing in - I have the code for that elsewhere
@@ -48,7 +45,7 @@ if(thisType=="true"){
 	Ext.setId(fpath);
 	Ext.getSizeC(nCHANNELS);
 }else{
-	showStatus("Why are you looking up here?");s
+	showStatus("Why are you looking up here?");
 	exit("Fatal Error - Not a supported file format\n\nExiting macro");
 }
 
@@ -72,10 +69,36 @@ if(File.exists(config_fpath)){
 run("Bio-Formats Importer", "open=["+fpath+"] autoscale color_mode=Default view=Hyperstack stack_order=XYCZT");
 fname = getInfo("image.filename");
 
-//Show middle slice, (change to find middle slice)
+//Get some info:
 getDimensions(width,height,channels,slices,frames);
-
 DIC_Channel = Get_Channel("Grays");
+
+
+//If requested, do the Dave rotation steps
+if(DAVE_ROTATION){
+	run("Set Measurements...", "  shape redirect=None decimal=2"); //to get angle
+	Stack.setPosition(0,slices/2,1); //assuimng first channel
+	setTool("line");
+	waitForUser("Draw a line along the axis of the tight junction");
+	run("Measure");
+	run("Select None");
+	angle = getResult("Angle",nResults-1);
+	angle_to_rotate = 90 + angle;
+	run("Rotate... ", "angle="+angle_to_rotate+" grid=1 interpolation=Bilinear enlarge stack");
+	if(DIC_Channel>=0){
+		Stack.setPosition(DIC_Channel, slices/2, 1);
+	}else{
+		//If theres no DIC just find the thing on channel 1
+		Stack.setPosition(1, slices/2, 1);
+	}
+	flip_it = getBoolean("Flip it? (flip it real good?)");
+	if(flip_it){
+		run("Rotate... ", "angle=180.0 grid=1 interpolation=Bilinear enlarge stack");
+	}
+}
+
+
+
 
 if(DIC_Channel>=0){
 	Stack.setPosition(DIC_Channel, slices/2, 1);
@@ -334,6 +357,7 @@ if(DO_BURN_FILENAME){
 	  	Dialog.setInsets(0, 40, 0);
 		Dialog.addNumber("Scalebar size (um)",1);
 	Dialog.addCheckbox("Adjust contrast manually", false);
+	Dialog.addCheckbox("Ask about image rotation", false);
   	Dialog.addMessage("");
 	//Dialog.addHelp("http://en.wikipedia.org/wiki/Special:Random");
 	Dialog.addHelp(help);
@@ -358,8 +382,9 @@ if(DO_BURN_FILENAME){
   	DO_DIC_INSET = Dialog.getCheckbox();
   	DO_BURN_FILENAME = Dialog.getCheckbox();
   	DO_SCALEBAR = Dialog.getCheckbox();
-  	ADJUST_CONTRAST_MANUALLY = Dialog.getCheckbox();
   	SCALEBAR_SIZE = Dialog.getNumber();
+  	ADJUST_CONTRAST_MANUALLY = Dialog.getCheckbox();
+	DAVE_ROTATION = Dialog.getCheckbox();
 
 	PANEL1 = Dialog.getChoice();
 		if(number_of_panels>1){
@@ -387,7 +412,7 @@ function write_config(fpath){
 	config_fpath = File.getParent(fpath);
 	config_fpath = config_fpath + fs + "config.txt";
 	cfg = File.open(config_fpath);
-	print(cfg, nCHANNELS + " " + nPANELS + " " + EXP_TITLE+" "+DO_MONTAGE+" "+MAIN_ROI_SIZE+" "+DO_INSET+" "+INSET_ROI_SIZE+" "+DO_DIC_INSET+" "+DO_BURN_FILENAME+" "+DO_SCALEBAR+" "+SCALEBAR_SIZE+" "+CLOSE_ALL_AT_END+" "+PANEL1+" "+PANEL2+" "+PANEL3+" "+PANEL4+" "+ C1_STRING + " "+ C2_STRING + " " + C3_STRING + " " + C4_STRING +" " +ADJUST_CONTRAST_MANUALLY+" ");
+	print(cfg, nCHANNELS + " " + nPANELS + " " + EXP_TITLE+" "+DO_MONTAGE+" "+MAIN_ROI_SIZE+" "+DO_INSET+" "+INSET_ROI_SIZE+" "+DO_DIC_INSET+" "+DO_BURN_FILENAME+" "+DO_SCALEBAR+" "+SCALEBAR_SIZE+" "+CLOSE_ALL_AT_END+" "+PANEL1+" "+PANEL2+" "+PANEL3+" "+PANEL4+" "+ C1_STRING + " "+ C2_STRING + " " + C3_STRING + " " + C4_STRING +" " +ADJUST_CONTRAST_MANUALLY+" "+DAVE_ROTATION+" ");
 	File.close(cfg);
 }
 
@@ -417,6 +442,7 @@ function read_config(config_fpath){
 	C3_STRING = config_options[18];
 	C4_STRING = config_options[19];
 	ADJUST_CONTRAST_MANUALLY = config_options[20];
+	DAVE_ROTATION = config_options[21];
 }
 
 function setup_config(fpath){
