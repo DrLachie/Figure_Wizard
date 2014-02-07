@@ -330,7 +330,7 @@ if(DO_BURN_FILENAME){
 	}
 
 
-	if(number_of_channels==4){
+	if(number_of_channels>=4){
 		panel_choices = newArray("C1","C2","C3","C4","C1+C2","C1+C2","C1+C3","C1+C4","C2+C4","C3+C4","C1+C2+C3","C1+C2+C4","C2+C3+C4","C1+C2+C3+C4");
 	}
 	if(number_of_channels==3){
