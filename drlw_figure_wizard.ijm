@@ -339,6 +339,9 @@ if(DO_BURN_FILENAME){
 	if(number_of_channels==2){
 		panel_choices = newArray("C1","C2","C1+C2");
 	}
+	if(number_of_channels==1){
+		panel_choices = newArray("C1");
+	}
 	
 	
   	Dialog.create("Panel Setup");
