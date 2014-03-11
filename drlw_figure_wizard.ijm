@@ -14,16 +14,17 @@ var DO_BURN_FILENAME = false;
 var DO_SCALEBAR = true;
 var SCALEBAR_SIZE = 1;
 var CLOSE_ALL_AT_END = false;
-var PANEL1 = "C1";
-var PANEL2 = "C2";
-var PANEL3 = "C1+C2+C3";
-var PANEL4 = "C4";
+var PANEL1 = "C1";		//	PANEL VARIABLES
+var PANEL2 = "C2";		//	NO LONGER USED
+var PANEL3 = "C1+C2+C3";	//	LEFT IN TO MAKE IMPLEMENTATION OF ARBITRARY PANEL LENGTH EASIER
+var PANEL4 = "C4";		//	MAY BE REMOVED IN FUTURE VERSIONS
 var C1_STRING="Green";
 var C2_STRING="Red";
 var C3_STRING="Blue";
 var C4_STRING="DummyGrays";
 var ADJUST_CONTRAST_MANUALLY = 1;
 var DAVE_ROTATION = false;
+var PANEL_STRING_ARRAY = "";
 
 var fs = File.separator();
 
@@ -217,11 +218,10 @@ for(filecounter=0;filecounter<list.length;filecounter++){
 			resetMinAndMax();
 		}
 	}
-	
-	make_panel(PANEL1,"1z_Allc_LargeROI",1);
-	if(nPANELS>1){make_panel(PANEL2,"1z_Allc_LargeROI",2);}
-	if(nPANELS>2){make_panel(PANEL3,"1z_Allc_LargeROI",3);}
-	if(nPANELS>3){make_panel(PANEL4,"1z_Allc_LargeROI",4);}
+
+	for(ii=1;ii<=nPANELS;ii++){
+		make_panel(PANEL_STRING_ARRAY[ii-1],"1z_Allc_LargeROI",ii);
+	}
 	
 	if(DO_SCALEBAR){
 		selectWindow("Panel_"+nPANELS);
@@ -243,61 +243,26 @@ for(filecounter=0;filecounter<list.length;filecounter++){
 			setTool("rectangle");
 			waitForUser("Inset ROI", "Move the ROI to wherever you want it") ;
 			Roi.getBounds(roi_x,roi_y,roi_w,roi_h);
-	
-			//Inset for Panel 1
-			selectWindow("Panel_1");
+
+
+		for(ii=1;ii<=nPANELS;ii++){
+			//Inset for Panel ii
+			selectWindow("Panel_"+ii);
 			makeRectangle(roi_x, roi_y, roi_w, roi_h);
-			run("Duplicate...", "title=[zoomed_panel1] duplicate");
+			run("Duplicate...", "title=[zoomed_panel"+ii+"] duplicate");
 			run("Scale...", "x=2 y=2 interpolation=None average process create");
-			selectWindow("Panel_1");
+			selectWindow("Panel_"+ii);
 			run("Select None");
 			roi_pos = parseInt(MAIN_ROI_SIZE)-(2.0*parseInt(INSET_ROI_SIZE));
 			
-			run("Add Image...", "image=zoomed_panel1-1 x="+roi_pos+" y="+roi_pos+" opactiy=100");
+			run("Add Image...", "image=zoomed_panel"+ii+"-1 x="+roi_pos+" y="+roi_pos+" opactiy=100");
 			run("Flatten");
 			drawRect(roi_pos,roi_pos,(parseInt(INSET_ROI_SIZE)*2) + 1 ,(parseInt(INSET_ROI_SIZE)*2));
 			close("*zoom*");
-			close("Panel_1");
-			selectWindow("Panel_1-1");
-			rename("Panel_1");
-	
-			//Inset for Panel 2
-			if(nPANELS>1){
-				selectWindow("Panel_2");
-				makeRectangle(roi_x, roi_y, roi_w, roi_h);
-				run("Duplicate...", "title=[zoomed_panel2] duplicate");
-				run("Scale...", "x=2 y=2 interpolation=None average process create");
-				selectWindow("Panel_2");
-				run("Select None");
-				roi_pos = parseInt(MAIN_ROI_SIZE)-(2.0*parseInt(INSET_ROI_SIZE));
-				
-				run("Add Image...", "image=zoomed_panel2-1 x="+roi_pos+" y="+roi_pos+" opactiy=100");
-				run("Flatten");
-				drawRect(roi_pos,roi_pos,(parseInt(INSET_ROI_SIZE)*2) + 1 ,(parseInt(INSET_ROI_SIZE)*2));
-				close("*zoom*");
-				close("Panel_2");
-				selectWindow("Panel_2-1");
-				rename("Panel_2");
-			}
-	
-			//Inset for Panel 3
-			if(nPANELS>2){
-				selectWindow("Panel_3");
-				makeRectangle(roi_x, roi_y, roi_w, roi_h);
-				run("Duplicate...", "title=[zoomed_panel3] duplicate");
-				run("Scale...", "x=2 y=2 interpolation=None average process create");
-				selectWindow("Panel_3");
-				run("Select None");
-				roi_pos = parseInt(MAIN_ROI_SIZE)-(2.0*parseInt(INSET_ROI_SIZE));
-				
-				run("Add Image...", "image=zoomed_panel3-1 x="+roi_pos+" y="+roi_pos+" opactiy=100");
-				run("Flatten");
-				drawRect(roi_pos,roi_pos,(parseInt(INSET_ROI_SIZE)*2) + 1 ,(parseInt(INSET_ROI_SIZE)*2));
-				close("*zoom*");
-				close("Panel_3");
-				selectWindow("Panel_3-1");
-				rename("Panel_3");
-			}
+			close("Panel_"+ii+"");
+			selectWindow("Panel_"+ii+"-1");
+			rename("Panel_"+ii+"");
+		}
 	}		
 	
 	combine_panels_and_montage();
@@ -412,7 +377,7 @@ for(filecounter=0;filecounter<list.length;filecounter++){
 
 
 	if(number_of_channels>=4){
-		panel_choices = newArray("C1","C2","C3","C4","C1+C2","C1+C2","C1+C3","C1+C4","C2+C3","C2+C4","C3+C4","C1+C2+C3","C1+C2+C4","C2+C3+C4","C1+C2+C3+C4");
+		panel_choices = newArray("C1","C2","C3","C4","C1+C2","C1+C3","C1+C4","C2+C3","C2+C4","C3+C4","C1+C2+C3","C1+C2+C4","C2+C3+C4","C1+C2+C3+C4");
 	}
 	if(number_of_channels==3){
 		panel_choices = newArray("C1","C2","C3","C1+C2","C1+C2","C1+C3","C1+C2+C3");
@@ -446,16 +411,10 @@ for(filecounter=0;filecounter<list.length;filecounter++){
 	//Dialog.addHelp("http://en.wikipedia.org/wiki/Special:Random");
 	Dialog.addHelp(help);
 
-	Dialog.addChoice("Panel 1",panel_choices,"C1");
-	if(number_of_panels>1){
-		Dialog.addChoice("Panel 2",panel_choices,"C2");
+	for(ii=1;ii<=number_of_panels;ii++){
+		Dialog.addChoice("Panel"+ii, panel_choices, panel_choices[ii-1]);
 	}
-	if(number_of_panels>2){
-		Dialog.addChoice("Panel 3",panel_choices,"C1+C2+C3");
-	}
-	if(number_of_panels>3){
-		Dialog.addChoice("Panel 4",panel_choices,"C4");
-	}
+
 	Dialog.show();  	
 
 	EXP_TITLE = Dialog.getString();
@@ -470,17 +429,14 @@ for(filecounter=0;filecounter<list.length;filecounter++){
   	ADJUST_CONTRAST_MANUALLY = Dialog.getCheckbox();
 	DAVE_ROTATION = Dialog.getCheckbox();
 
-	PANEL1 = Dialog.getChoice();
-		if(number_of_panels>1){
-		PANEL2 = Dialog.getChoice();
+	PANEL_STRING_ARRAY = newArray();
+
+
+	for(ii=1;ii<=number_of_panels;ii++){
+		PANEL_STRING_ARRAY = Array.concat(PANEL_STRING_ARRAY, Dialog.getChoice());
+		Array.print(PANEL_STRING_ARRAY);
 	}
-	if(number_of_panels>2){
-		PANEL3 = Dialog.getChoice();
-	}
-	if(number_of_panels>3){
-		PANEL4 = Dialog.getChoice();
-	}
-  }
+}
 
 
 function write_contrast_changes(fpath,fname,string){
@@ -496,7 +452,16 @@ function write_config(fpath){
 	config_fpath = File.getParent(fpath);
 	config_fpath = config_fpath + fs + "config.txt";
 	cfg = File.open(config_fpath);
-	print(cfg, nCHANNELS + " " + nPANELS + " " + EXP_TITLE+" "+DO_MONTAGE+" "+MAIN_ROI_SIZE+" "+DO_INSET+" "+INSET_ROI_SIZE+" "+DO_DIC_INSET+" "+DO_BURN_FILENAME+" "+DO_SCALEBAR+" "+SCALEBAR_SIZE+" "+CLOSE_ALL_AT_END+" "+PANEL1+" "+PANEL2+" "+PANEL3+" "+PANEL4+" "+ C1_STRING + " "+ C2_STRING + " " + C3_STRING + " " + C4_STRING +" " +ADJUST_CONTRAST_MANUALLY+" "+DAVE_ROTATION+" ");
+
+	panel_string_array_string = "";
+	for(ii=0;ii<PANEL_STRING_ARRAY.length;ii++){
+		panel_string_array_string = panel_string_array_string + PANEL_STRING_ARRAY[ii] + " ";		
+	}
+
+
+
+
+	print(cfg, nCHANNELS + " " + nPANELS + " " + EXP_TITLE+" "+DO_MONTAGE+" "+MAIN_ROI_SIZE+" "+DO_INSET+" "+INSET_ROI_SIZE+" "+DO_DIC_INSET+" "+DO_BURN_FILENAME+" "+DO_SCALEBAR+" "+SCALEBAR_SIZE+" "+CLOSE_ALL_AT_END+" "+PANEL1+" "+PANEL2+" "+PANEL3+" "+PANEL4+" "+ C1_STRING + " "+ C2_STRING + " " + C3_STRING + " " + C4_STRING +" " +ADJUST_CONTRAST_MANUALLY+" "+DAVE_ROTATION+" "+panel_string_array_string+" ");
 	File.close(cfg);
 }
 
@@ -527,6 +492,14 @@ function read_config(config_fpath){
 	C4_STRING = config_options[19];
 	ADJUST_CONTRAST_MANUALLY = config_options[20];
 	DAVE_ROTATION = config_options[21];
+
+	PANEL_STRING_ARRAY = newArray();
+	for(ii=1;ii<=nPANELS;ii++){
+		PANEL_STRING_ARRAY = Array.concat(PANEL_STRING_ARRAY, config_options[21+ii]);
+	}
+
+	
+	
 }
 
 function setup_config(fpath){
@@ -620,12 +593,12 @@ function Apply_LUT(channel_string){
 }
 		
 function combine_panels_and_montage(){
-	if(nPANELS==2){
-	run("Concatenate...", "  title=[Concatenated Stacks] keep image1=Panel_1 image2=Panel_2");}	
-	if(nPANELS==3){
-	run("Concatenate...", "  title=[Concatenated Stacks] keep image1=Panel_1 image2=Panel_2 image3=Panel_3");}
-	if(nPANELS==4){
-	run("Concatenate...", "  title=[Concatenated Stacks] keep image1=Panel_1 image2=Panel_2 image3=Panel_3 image4=Panel_4");}
+	newString = "title=[Concatenated Stacks] keep ";
+	//build string for arbitrary number of panels
+	for(i=1;i<=nPANELS;i++){
+		newString = newString + "image"+i+"=Panel_"+i+" ";
+	}
+	run("Concatenate...", newString);	
 	run("Make Montage...", "columns="+nPANELS+" rows=1 scale=1 first=1 last="+nPANELS+" increment=1 border=6 font=12");	
 	close("Concatenated Stacks");
 }
