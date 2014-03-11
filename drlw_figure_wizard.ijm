@@ -37,221 +37,302 @@ if(version < "1.48h"){
 //At the moment, just runs on a single file that you open here
 //eventually I'll put the batch processing in - I have the code for that elsewhere
 //it's just made slightly more complicated by the different options available here
-fpath=File.openDialog("Select a file");
+BATCHING = getBoolean("Batch a directory?");
 
-//Check that the file is ok to use. 
-Ext.isThisType(fpath, thisType)
-if(thisType=="true"){
-	Ext.setId(fpath);
-	Ext.getSizeC(nCHANNELS);
-}else{
-	showStatus("Why are you looking up here?");
-	exit("Fatal Error - Not a supported file format\n\nExiting macro");
-}
-
-//Check for existing config file
-config_fpath = File.getParent(fpath);
-config_fpath = config_fpath + fs + "config.txt";
-
-if(File.exists(config_fpath)){
-	use_old_config = getBoolean("Config file exists, re-use these settings?");
-	if(use_old_config){
-		read_config(config_fpath);
+if(!BATCHING){
+	fpath=File.openDialog("Select a file");
+		
+	//Check for existing config file
+	config_fpath = File.getParent(fpath);
+	config_fpath = config_fpath + fs + "config.txt";
+	list=newArray(1); //slight hack, list is needed in case of batching, easier to define a dummy one than work around.
+	
+	if(File.exists(config_fpath)){
+		use_old_config = getBoolean("Config file exists, re-use these settings?");
+		if(use_old_config){
+			read_config(config_fpath);
+		}else{
+			//Check file and create config
+			Ext.isThisType(fpath, thisType)
+			if(thisType=="true"){
+				Ext.setId(fpath);
+				Ext.getSizeC(nCHANNELS);
+			}else{
+				showStatus("Why are you looking up here?");
+				exit("Fatal Error - Not a supported file format\n\nExiting macro");
+			}
+			setup_config(fpath);
+		}
 	}else{
+		//Check file and create config
+		Ext.isThisType(fpath, thisType)
+		if(thisType=="true"){
+			Ext.setId(fpath);
+			Ext.getSizeC(nCHANNELS);
+		}else{
+			showStatus("Why are you looking up here?");
+			exit("Fatal Error - Not a supported file format\n\nExiting macro");
+		}
 		setup_config(fpath);
 	}
-}else{
-	setup_config(fpath);
+		
 }
 
+if(BATCHING){
+	dir1=getDirectory("Select a directory for batching");
+	list = getFileList(dir1);
+	fpath = dir1+list[0];
+	//Check for existing config file
+	config_fpath = dir1;
+	config_fpath = config_fpath + "config.txt";
+	
+	if(File.exists(config_fpath)){
+		use_old_config = getBoolean("Config file exists, re-use these settings?");
+		if(use_old_config){
+			read_config(config_fpath);
+		}else{
+			//Check file and create config
+			Ext.isThisType(fpath, thisType)
+			if(thisType=="true"){
+				Ext.setId(fpath);
+				Ext.getSizeC(nCHANNELS);
+			}else{
+				showStatus("Why are you looking up here?");
+				exit("Fatal Error - Not a supported file format\n\nExiting macro");
+			}
+			setup_config(fpath);
+		}
+	}else{
+		//Check file and create config
+		Ext.isThisType(fpath, thisType)
+		if(thisType=="true"){
+			Ext.setId(fpath);
+			Ext.getSizeC(nCHANNELS);
+		}else{
+			showStatus("Why are you looking up here?");
+			exit("Fatal Error - Not a supported file format\n\nExiting macro");
+		}
+		setup_config(fpath);
+	}
+	
+}
 
-//Open the image (using bioformats) 
-run("Bio-Formats Importer", "open=["+fpath+"] autoscale color_mode=Default view=Hyperstack stack_order=XYCZT");
-fname = getInfo("image.filename");
-
-//Get some info:
-getDimensions(width,height,channels,slices,frames);
-DIC_Channel = Get_Channel("Grays");
-
-
-//If requested, do the Dave rotation steps
-if(DAVE_ROTATION){
-	run("Set Measurements...", "  shape redirect=None decimal=2"); //to get angle
-	Stack.setPosition(0,slices/2,1); //assuimng first channel
-	setTool("line");
-	waitForUser("Draw a line along the axis of the tight junction");
-	run("Measure");
-	run("Select None");
-	angle = getResult("Angle",nResults-1);
-	angle_to_rotate = 90 + angle;
-	run("Rotate... ", "angle="+angle_to_rotate+" grid=1 interpolation=Bilinear enlarge stack");
+/*
+ * ****************************************************************
+ */
+for(filecounter=0;filecounter<list.length;filecounter++){
+	if(BATCHING){fpath = dir1+list[0];} //eg if batching, build fpath. If we're not fpath is already defined
+			
+	//Check that the file is ok to use. 
+	
+	Ext.isThisType(fpath, thisType)
+	if(thisType=="true"){
+		Ext.setId(fpath);
+		//Ext.getSizeC(nCHANNELS);
+	}else{
+		showStatus("Why are you looking up here?");
+		exit("Fatal Error - Not a supported file format\n\nExiting macro");
+	}
+		
+	
+	//Open the image (using bioformats) 
+	run("Bio-Formats Importer", "open=["+fpath+"] autoscale color_mode=Default view=Hyperstack stack_order=XYCZT");
+	fname = getInfo("image.filename");
+	
+	//Get some info:
+	getDimensions(width,height,channels,slices,frames);
+	DIC_Channel = Get_Channel("Grays");
+	
+	
+	//If requested, do the Dave rotation steps
+	if(DAVE_ROTATION){
+		run("Set Measurements...", "  shape redirect=None decimal=2"); //to get angle
+		Stack.setPosition(0,slices/2,1); //assuimng first channel
+		setTool("line");
+		waitForUser("Draw a line along the axis of the tight junction");
+		run("Measure");
+		run("Select None");
+		angle = getResult("Angle",nResults-1);
+		angle_to_rotate = 90 + angle;
+		run("Rotate... ", "angle="+angle_to_rotate+" grid=1 interpolation=Bilinear enlarge stack");
+		if(DIC_Channel>=0){
+			Stack.setPosition(DIC_Channel, slices/2, 1);
+		}else{
+			//If theres no DIC just find the thing on channel 1
+			Stack.setPosition(1, slices/2, 1);
+		}
+		flip_it = getBoolean("Flip it? (flip it real good?)");
+		if(flip_it){
+			run("Rotate... ", "angle=180.0 grid=1 interpolation=Bilinear enlarge stack");
+		}
+	}
+	
+	
+	
+	
 	if(DIC_Channel>=0){
 		Stack.setPosition(DIC_Channel, slices/2, 1);
 	}else{
 		//If theres no DIC just find the thing on channel 1
 		Stack.setPosition(1, slices/2, 1);
 	}
-	flip_it = getBoolean("Flip it? (flip it real good?)");
-	if(flip_it){
-		run("Rotate... ", "angle=180.0 grid=1 interpolation=Bilinear enlarge stack");
-	}
-}
-
-
-
-
-if(DIC_Channel>=0){
-	Stack.setPosition(DIC_Channel, slices/2, 1);
-}else{
-	//If theres no DIC just find the thing on channel 1
-	Stack.setPosition(1, slices/2, 1);
-}
-makeRectangle(width/2 - MAIN_ROI_SIZE/2, height/2 - MAIN_ROI_SIZE/2, MAIN_ROI_SIZE, MAIN_ROI_SIZE);
-waitForUser("Main ROI", "Move the ROI to wherever you want it") ;
-run("Duplicate...", "title=Allz_Allc_LargeROI duplicate");//channels=1-4 slices=1-30");
-close(fname);
-		
-
-Green_Channel = Get_Channel("Green");
-if(Green_Channel>=0){
-	Stack.setPosition(Green_Channel, slices/2, 1);
-}else{
-	//If theres no Green just find the thing on channel 1
-	Stack.setPosition(1, slices/2, 1);
-}
-waitForUser("Select Plane", "Select \"Best\" Plane") ;
-		
-Stack.getPosition(channel,best_slice,time); 
-run("Duplicate...", "title=1z_Allc_LargeROI duplicate channels=1-4 slices="+best_slice);
-
-//Adjust contrast of each channel (if requested in the menu)
-if(ADJUST_CONTRAST_MANUALLY){
-	Stack.getDimensions(x,x,chan,x,x);
-	contrast_string = "";
-	for(l=1;l<=chan;l++){
-		Stack.setChannel(l);
-		resetMinAndMax();
-		getMinAndMax(min_before,max_before);
-		run("Brightness/Contrast...");
-		waitForUser("Adjust brightness/contrast on channel "+l);
-		getMinAndMax(min_after,max_after);
-		contrast_string = contrast_string + "Channel "+l+" oldmin/newmin=" +min_before+"/"+min_after+ " oldmax/newmax="+max_before+"/"+max_after+"\n\n";
-	}
-	//record the changes made
-	write_contrast_changes(fpath,fname,contrast_string);
-}else{
-	//otherwise just to auto-min/max scaling
-	Stack.getDimensions(x,x,chan,x,x);
-	for(l=1;l<=chan;l++){
-		Stack.setChannel(l);
-		resetMinAndMax();
-	}
-}
-
-make_panel(PANEL1,"1z_Allc_LargeROI",1);
-if(nPANELS>1){make_panel(PANEL2,"1z_Allc_LargeROI",2);}
-if(nPANELS>2){make_panel(PANEL3,"1z_Allc_LargeROI",3);}
-if(nPANELS>3){make_panel(PANEL4,"1z_Allc_LargeROI",4);}
-
-if(DO_SCALEBAR){
-	selectWindow("Panel_"+nPANELS);
-	//Put the scalebar on the right of the last image if it doesn't have an inset
-	if(nPANELS<4 && DO_INSET){
-		run("Scale Bar...", "width=1 height=4 font=14 color=White background=None location=[Lower Left] hide");
+	makeRectangle(width/2 - MAIN_ROI_SIZE/2, height/2 - MAIN_ROI_SIZE/2, MAIN_ROI_SIZE, MAIN_ROI_SIZE);
+	waitForUser("Main ROI", "Move the ROI to wherever you want it") ;
+	run("Duplicate...", "title=Allz_Allc_LargeROI duplicate");//channels=1-4 slices=1-30");
+	close(fname);
+			
+	
+	Green_Channel = Get_Channel("Green");
+	if(Green_Channel>=0){
+		Stack.setPosition(Green_Channel, slices/2, 1);
 	}else{
-		run("Scale Bar...", "width=1 height=4 font=14 color=White background=None location=[Lower Right] hide");
+		//If theres no Green just find the thing on channel 1
+		Stack.setPosition(1, slices/2, 1);
+	}
+	waitForUser("Select Plane", "Select \"Best\" Plane") ;
+			
+	Stack.getPosition(channel,best_slice,time); 
+	run("Duplicate...", "title=1z_Allc_LargeROI duplicate channels=1-4 slices="+best_slice);
+	
+	//Adjust contrast of each channel (if requested in the menu)
+	if(ADJUST_CONTRAST_MANUALLY){
+		Stack.getDimensions(x,x,chan,x,x);
+		contrast_string = "";
+		for(l=1;l<=chan;l++){
+			Stack.setChannel(l);
+			resetMinAndMax();
+			getMinAndMax(min_before,max_before);
+			run("Brightness/Contrast...");
+			waitForUser("Adjust brightness/contrast on channel "+l);
+			getMinAndMax(min_after,max_after);
+			contrast_string = contrast_string + "Channel "+l+" oldmin/newmin=" +min_before+"/"+min_after+ " oldmax/newmax="+max_before+"/"+max_after+"\n\n";
+		}
+		//record the changes made
+		write_contrast_changes(fpath,fname,contrast_string);
+	}else{
+		//otherwise just to auto-min/max scaling
+		Stack.getDimensions(x,x,chan,x,x);
+		for(l=1;l<=chan;l++){
+			Stack.setChannel(l);
+			resetMinAndMax();
+		}
+	}
+	
+	make_panel(PANEL1,"1z_Allc_LargeROI",1);
+	if(nPANELS>1){make_panel(PANEL2,"1z_Allc_LargeROI",2);}
+	if(nPANELS>2){make_panel(PANEL3,"1z_Allc_LargeROI",3);}
+	if(nPANELS>3){make_panel(PANEL4,"1z_Allc_LargeROI",4);}
+	
+	if(DO_SCALEBAR){
+		selectWindow("Panel_"+nPANELS);
+		//Put the scalebar on the right of the last image if it doesn't have an inset
+		if(nPANELS<4 && DO_INSET){
+			run("Scale Bar...", "width=1 height=4 font=14 color=White background=None location=[Lower Left] hide");
+		}else{
+			run("Scale Bar...", "width=1 height=4 font=14 color=White background=None location=[Lower Right] hide");
+		}
+	
+	}
+	
+	if(DO_INSET){
+		selectWindow("1z_Allc_LargeROI");
+		makeRectangle(MAIN_ROI_SIZE/2 - INSET_ROI_SIZE/2, MAIN_ROI_SIZE/2 - INSET_ROI_SIZE/2, INSET_ROI_SIZE, INSET_ROI_SIZE);
+	
+			run("Colors...", "foreground=white background=black selection=yellow"); //add to menu?
+			run("Line Width...", "line=3");//add to menu?
+			setTool("rectangle");
+			waitForUser("Inset ROI", "Move the ROI to wherever you want it") ;
+			Roi.getBounds(roi_x,roi_y,roi_w,roi_h);
+	
+			//Inset for Panel 1
+			selectWindow("Panel_1");
+			makeRectangle(roi_x, roi_y, roi_w, roi_h);
+			run("Duplicate...", "title=[zoomed_panel1] duplicate");
+			run("Scale...", "x=2 y=2 interpolation=None average process create");
+			selectWindow("Panel_1");
+			run("Select None");
+			roi_pos = parseInt(MAIN_ROI_SIZE)-(2.0*parseInt(INSET_ROI_SIZE));
+			
+			run("Add Image...", "image=zoomed_panel1-1 x="+roi_pos+" y="+roi_pos+" opactiy=100");
+			run("Flatten");
+			drawRect(roi_pos,roi_pos,(parseInt(INSET_ROI_SIZE)*2) + 1 ,(parseInt(INSET_ROI_SIZE)*2));
+			close("*zoom*");
+			close("Panel_1");
+			selectWindow("Panel_1-1");
+			rename("Panel_1");
+	
+			//Inset for Panel 2
+			if(nPANELS>1){
+				selectWindow("Panel_2");
+				makeRectangle(roi_x, roi_y, roi_w, roi_h);
+				run("Duplicate...", "title=[zoomed_panel2] duplicate");
+				run("Scale...", "x=2 y=2 interpolation=None average process create");
+				selectWindow("Panel_2");
+				run("Select None");
+				roi_pos = parseInt(MAIN_ROI_SIZE)-(2.0*parseInt(INSET_ROI_SIZE));
+				
+				run("Add Image...", "image=zoomed_panel2-1 x="+roi_pos+" y="+roi_pos+" opactiy=100");
+				run("Flatten");
+				drawRect(roi_pos,roi_pos,(parseInt(INSET_ROI_SIZE)*2) + 1 ,(parseInt(INSET_ROI_SIZE)*2));
+				close("*zoom*");
+				close("Panel_2");
+				selectWindow("Panel_2-1");
+				rename("Panel_2");
+			}
+	
+			//Inset for Panel 3
+			if(nPANELS>2){
+				selectWindow("Panel_3");
+				makeRectangle(roi_x, roi_y, roi_w, roi_h);
+				run("Duplicate...", "title=[zoomed_panel3] duplicate");
+				run("Scale...", "x=2 y=2 interpolation=None average process create");
+				selectWindow("Panel_3");
+				run("Select None");
+				roi_pos = parseInt(MAIN_ROI_SIZE)-(2.0*parseInt(INSET_ROI_SIZE));
+				
+				run("Add Image...", "image=zoomed_panel3-1 x="+roi_pos+" y="+roi_pos+" opactiy=100");
+				run("Flatten");
+				drawRect(roi_pos,roi_pos,(parseInt(INSET_ROI_SIZE)*2) + 1 ,(parseInt(INSET_ROI_SIZE)*2));
+				close("*zoom*");
+				close("Panel_3");
+				selectWindow("Panel_3-1");
+				rename("Panel_3");
+			}
+	}		
+	
+	combine_panels_and_montage();
+	
+	close("Panel*");
+	close("*z_*");
+	
+	if(DO_BURN_FILENAME){
+		EXP_TITLE = fname;
+		setForegroundColor(200,200,200); //Adjust Caption color
+		setFont("SansSerif", 18, "bold"); //adjust to change appearance of caption ("bold" can be removed and "SansSerif" can be changed to "Serif");
+		xpos=10;ypos=35; //adjust these to move the caption around
+		caption=EXP_TITLE;
+		drawString(caption,xpos,ypos);
 	}
 
-}
 
-if(DO_INSET){
-	selectWindow("1z_Allc_LargeROI");
-	makeRectangle(MAIN_ROI_SIZE/2 - INSET_ROI_SIZE/2, MAIN_ROI_SIZE/2 - INSET_ROI_SIZE/2, INSET_ROI_SIZE, INSET_ROI_SIZE);
-
-		run("Colors...", "foreground=white background=black selection=yellow"); //add to menu?
-		run("Line Width...", "line=3");//add to menu?
-		setTool("rectangle");
-		waitForUser("Inset ROI", "Move the ROI to wherever you want it") ;
-		Roi.getBounds(roi_x,roi_y,roi_w,roi_h);
-
-		//Inset for Panel 1
-		selectWindow("Panel_1");
-		makeRectangle(roi_x, roi_y, roi_w, roi_h);
-		run("Duplicate...", "title=[zoomed_panel1] duplicate");
-		run("Scale...", "x=2 y=2 interpolation=None average process create");
-		selectWindow("Panel_1");
-		run("Select None");
-		roi_pos = parseInt(MAIN_ROI_SIZE)-(2.0*parseInt(INSET_ROI_SIZE));
-		
-		run("Add Image...", "image=zoomed_panel1-1 x="+roi_pos+" y="+roi_pos+" opactiy=100");
-		run("Flatten");
-		drawRect(roi_pos,roi_pos,(parseInt(INSET_ROI_SIZE)*2) + 1 ,(parseInt(INSET_ROI_SIZE)*2));
-		close("*zoom*");
-		close("Panel_1");
-		selectWindow("Panel_1-1");
-		rename("Panel_1");
-
-		//Inset for Panel 2
-		if(nPANELS>1){
-			selectWindow("Panel_2");
-			makeRectangle(roi_x, roi_y, roi_w, roi_h);
-			run("Duplicate...", "title=[zoomed_panel2] duplicate");
-			run("Scale...", "x=2 y=2 interpolation=None average process create");
-			selectWindow("Panel_2");
-			run("Select None");
-			roi_pos = parseInt(MAIN_ROI_SIZE)-(2.0*parseInt(INSET_ROI_SIZE));
-			
-			run("Add Image...", "image=zoomed_panel2-1 x="+roi_pos+" y="+roi_pos+" opactiy=100");
-			run("Flatten");
-			drawRect(roi_pos,roi_pos,(parseInt(INSET_ROI_SIZE)*2) + 1 ,(parseInt(INSET_ROI_SIZE)*2));
-			close("*zoom*");
-			close("Panel_2");
-			selectWindow("Panel_2-1");
-			rename("Panel_2");
-		}
-
-		//Inset for Panel 3
-		if(nPANELS>2){
-			selectWindow("Panel_3");
-			makeRectangle(roi_x, roi_y, roi_w, roi_h);
-			run("Duplicate...", "title=[zoomed_panel3] duplicate");
-			run("Scale...", "x=2 y=2 interpolation=None average process create");
-			selectWindow("Panel_3");
-			run("Select None");
-			roi_pos = parseInt(MAIN_ROI_SIZE)-(2.0*parseInt(INSET_ROI_SIZE));
-			
-			run("Add Image...", "image=zoomed_panel3-1 x="+roi_pos+" y="+roi_pos+" opactiy=100");
-			run("Flatten");
-			drawRect(roi_pos,roi_pos,(parseInt(INSET_ROI_SIZE)*2) + 1 ,(parseInt(INSET_ROI_SIZE)*2));
-			close("*zoom*");
-			close("Panel_3");
-			selectWindow("Panel_3-1");
-			rename("Panel_3");
-		}
-}		
-
-combine_panels_and_montage();
-
-close("Panel*");
-close("*z_*");
-
-if(DO_BURN_FILENAME){
-	EXP_TITLE = fname;
-	setForegroundColor(200,200,200); //Adjust Caption color
-	setFont("SansSerif", 18, "bold"); //adjust to change appearance of caption ("bold" can be removed and "SansSerif" can be changed to "Serif");
-	xpos=10;ypos=35; //adjust these to move the caption around
-	caption=EXP_TITLE;
-	drawString(caption,xpos,ypos);
-}
+	if(BATCHING){
+		//If we're batching, best to save the output and close the file
+		saveAs("TIF",dir1 + fname + "_Montage.tif");
+		run("Close All");
+	}
 
 
+
+  ////////////////////////////////////////////////////////////
+} //The final bracket. This is where the master loop ends. ///
+  ////////////////////////////////////////////////////////////
 
 
 /* *************************************************************************
- * 
+ * *************************************************************************
  *  	FUNCTIONS
  * 
- * 
+ * *************************************************************************
  * *************************************************************************
  */
 
@@ -331,7 +412,7 @@ if(DO_BURN_FILENAME){
 
 
 	if(number_of_channels>=4){
-		panel_choices = newArray("C1","C2","C3","C4","C1+C2","C1+C2","C1+C3","C1+C4","C2+C4","C3+C4","C1+C2+C3","C1+C2+C4","C2+C3+C4","C1+C2+C3+C4");
+		panel_choices = newArray("C1","C2","C3","C4","C1+C2","C1+C2","C1+C3","C1+C4","C2+C3","C2+C4","C3+C4","C1+C2+C3","C1+C2+C4","C2+C3+C4","C1+C2+C3+C4");
 	}
 	if(number_of_channels==3){
 		panel_choices = newArray("C1","C2","C3","C1+C2","C1+C2","C1+C3","C1+C2+C3");
@@ -486,12 +567,13 @@ function make_panel(panel_string,imagelabel,Panel_Number){
 		selectWindow(channels[1]+"-temp_panel");
 	//	resetMinAndMax();
 		Apply_LUT(channels[1]);
-		run("Merge Channels...", "c1="+channels[0]+"-temp_panel c2="+channels[1]+"-temp_panel create keep");
+		run("Merge Channels...", "c1="+channels[0]+"-temp_panel c2="+channels[1]+"-temp_panel c3=*None* c4=*None* create keep");
 		run("RGB Color");
 		rename("Panel_"+Panel_Number);
 		close("C*-temp_panel");
 	}
 	if(channels.length==3){
+
 		selectWindow(channels[0]+"-temp_panel");
 	//	resetMinAndMax();
 		Apply_LUT(channels[0]);
@@ -501,12 +583,15 @@ function make_panel(panel_string,imagelabel,Panel_Number){
 		selectWindow(channels[2]+"-temp_panel");
 	//	resetMinAndMax();
 		Apply_LUT(channels[2]);
-		run("Merge Channels...", "c1="+channels[0]+"-temp_panel c2="+channels[1]+"-temp_panel c3="+channels[2]+"-temp_panel create keep");
+		//stop
+		run("Merge Channels...", "c1="+channels[0]+"-temp_panel c2="+channels[1]+"-temp_panel c3="+channels[2]+"-temp_panel c4=*None* create keep");
 		run("RGB Color");
 		rename("Panel_"+Panel_Number);
 		close("C*-temp_panel");
 	}
+	
 	if(channels.length==4){
+		
 		selectWindow(channels[0]+"-temp_panel");
 	//	resetMinAndMax();
 		Apply_LUT(channels[0]);
