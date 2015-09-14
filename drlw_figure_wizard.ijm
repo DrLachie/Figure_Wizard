@@ -1,3 +1,20 @@
+/*
+*	drlw_figure_wizard
+*	Generate tiled montage images of IFAs
+*	Code developed by L.Whitehead (whithehead@wehi.edu.au)
+*
+* 	Published as used extensively in 
+*	PUT CITATION OF PAPER HERE
+*
+*	
+*
+*
+*/
+
+
+
+
+
 run("Bio-Formats Macro Extensions"); //for various reasons
 
 //Global variables - DO NOT REMOVE
@@ -23,7 +40,7 @@ var C2_STRING="Red";
 var C3_STRING="Blue";
 var C4_STRING="DummyGrays";
 var ADJUST_CONTRAST_MANUALLY = 1;
-var DAVE_ROTATION = false;
+var DO_ROTATION = false;
 var PANEL_STRING_ARRAY = "";
 
 var fs = File.separator();
@@ -35,18 +52,15 @@ if(version < "1.48h"){
 	exit("Macro requires version 1.48j or greater\n\n Update ImageJ and try again"); 
 }
 
-//At the moment, just runs on a single file that you open here
-//eventually I'll put the batch processing in - I have the code for that elsewhere
-//it's just made slightly more complicated by the different options available here
-BATCHING = getBoolean("Batch a directory?");
 
-if(!BATCHING){
+
+if(true){
 	fpath=File.openDialog("Select a file");
 		
 	//Check for existing config file
 	config_fpath = File.getParent(fpath);
 	config_fpath = config_fpath + fs + "config.txt";
-	list=newArray(1); //slight hack, list is needed in case of batching, easier to define a dummy one than work around.
+	list=newArray(1); //slight hack, list is needed in case of batching, easier to define a dummy one than work around. Although it's a moot point since batching has been removed.
 	
 	if(File.exists(config_fpath)){
 		use_old_config = getBoolean("Config file exists, re-use these settings?");
@@ -76,65 +90,22 @@ if(!BATCHING){
 		}
 		setup_config(fpath);
 	}
-		
 }
 
-if(BATCHING){
-	dir1=getDirectory("Select a directory for batching");
-	list = getFileList(dir1);
-	fpath = dir1+list[0];
-	//Check for existing config file
-	config_fpath = dir1;
-	config_fpath = config_fpath + "config.txt";
-	
-	if(File.exists(config_fpath)){
-		use_old_config = getBoolean("Config file exists, re-use these settings?");
-		if(use_old_config){
-			read_config(config_fpath);
-		}else{
-			//Check file and create config
-			Ext.isThisType(fpath, thisType)
-			if(thisType=="true"){
-				Ext.setId(fpath);
-				Ext.getSizeC(nCHANNELS);
-			}else{
-				showStatus("Why are you looking up here?");
-				exit("Fatal Error - Not a supported file format\n\nExiting macro");
-			}
-			setup_config(fpath);
-		}
-	}else{
-		//Check file and create config
-		Ext.isThisType(fpath, thisType)
-		if(thisType=="true"){
-			Ext.setId(fpath);
-			Ext.getSizeC(nCHANNELS);
-		}else{
-			showStatus("Why are you looking up here?");
-			exit("Fatal Error - Not a supported file format\n\nExiting macro");
-		}
-		setup_config(fpath);
-	}
-	
-}
 
 /*
  * ****************************************************************
  */
-for(filecounter=0;filecounter<list.length;filecounter++){
-	if(BATCHING){fpath = dir1+list[0];} //eg if batching, build fpath. If we're not fpath is already defined
-			
+ //This loop was for when batching was being trialed.
+for(filecounter=0;filecounter<list.length;filecounter++){	
 	//Check that the file is ok to use. 
-	
 	Ext.isThisType(fpath, thisType)
 	if(thisType=="true"){
 		Ext.setId(fpath);
-		//Ext.getSizeC(nCHANNELS);
 	}else{
-		showStatus("Why are you looking up here?");
 		exit("Fatal Error - Not a supported file format\n\nExiting macro");
 	}
-		
+
 	
 	//Open the image (using bioformats) 
 	run("Bio-Formats Importer", "open=["+fpath+"] autoscale color_mode=Default view=Hyperstack stack_order=XYCZT");
@@ -144,9 +115,8 @@ for(filecounter=0;filecounter<list.length;filecounter++){
 	getDimensions(width,height,channels,slices,frames);
 	DIC_Channel = Get_Channel("Grays");
 	
-	
-	//If requested, do the Dave rotation steps
-	if(DAVE_ROTATION){
+	//If requested, do the rotation steps
+	if(DO_ROTATION){
 		run("Set Measurements...", "  shape redirect=None decimal=2"); //to get angle
 		Stack.setPosition(0,slices/2,1); //assuimng first channel
 		setTool("line");
@@ -238,11 +208,11 @@ for(filecounter=0;filecounter<list.length;filecounter++){
 		selectWindow("1z_Allc_LargeROI");
 		makeRectangle(MAIN_ROI_SIZE/2 - INSET_ROI_SIZE/2, MAIN_ROI_SIZE/2 - INSET_ROI_SIZE/2, INSET_ROI_SIZE, INSET_ROI_SIZE);
 	
-			run("Colors...", "foreground=white background=black selection=yellow"); //add to menu?
-			run("Line Width...", "line=3");//add to menu?
-			setTool("rectangle");
-			waitForUser("Inset ROI", "Move the ROI to wherever you want it") ;
-			Roi.getBounds(roi_x,roi_y,roi_w,roi_h);
+		run("Colors...", "foreground=white background=black selection=yellow"); //add to menu?
+		run("Line Width...", "line=3");//add to menu?
+		setTool("rectangle");
+		waitForUser("Inset ROI", "Move the ROI to wherever you want it") ;
+		Roi.getBounds(roi_x,roi_y,roi_w,roi_h);
 
 
 		for(ii=1;ii<=nPANELS;ii++){
@@ -278,19 +248,7 @@ for(filecounter=0;filecounter<list.length;filecounter++){
 		caption=EXP_TITLE;
 		drawString(caption,xpos,ypos);
 	}
-
-
-	if(BATCHING){
-		//If we're batching, best to save the output and close the file
-		saveAs("TIF",dir1 + fname + "_Montage.tif");
-		run("Close All");
-	}
-
-
-
-  ////////////////////////////////////////////////////////////
-} //The final bracket. This is where the master loop ends. ///
-  ////////////////////////////////////////////////////////////
+} 
 
 
 /* *************************************************************************
