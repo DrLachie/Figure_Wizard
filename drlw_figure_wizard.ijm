@@ -11,10 +11,6 @@
 *
 */
 
-
-
-
-
 run("Bio-Formats Macro Extensions"); //for various reasons
 
 //Global variables - DO NOT REMOVE
@@ -283,12 +279,18 @@ for(filecounter=0;filecounter<list.length;filecounter++){
 	Dialog.addChoice("Channel 1",choiceArray,"Green");
 	
 	Dialog.addChoice("Channel 2",choiceArray,"Red");
-	Dialog.addChoice("Channel 3",choiceArray,"Blue");
+	if(number_of_channels==3){
+		Dialog.addChoice("Channel 3",choiceArray,"Blue");
+	}
 	if(number_of_channels == 4){
 		Dialog.addChoice("Channel 4",choiceArray,"Grays");
 	}
 
-	Dialog.addNumber("Number of montage panels",4,0,2,"");
+	if(number_of_channels==2){
+		Dialog.addNumber("Number of montage panels",3,0,2,"");
+	}else{
+		Dialog.addNumber("Number of montage panels",4,0,2,"");
+	}
 	//Dialog.addHelp("http://en.wikipedia.org/wiki/Special:Random");
 	Dialog.addHelp(help);
 
@@ -297,7 +299,9 @@ for(filecounter=0;filecounter<list.length;filecounter++){
 
 	C1_STRING=Dialog.getChoice();
 	C2_STRING=Dialog.getChoice();
-	C3_STRING=Dialog.getChoice();
+	if(number_of_channels == 3){
+		C3_STRING=Dialog.getChoice();
+	}
 	if(number_of_channels == 4){
 		C4_STRING=Dialog.getChoice();
 	}
@@ -385,7 +389,7 @@ for(filecounter=0;filecounter<list.length;filecounter++){
   	DO_SCALEBAR = Dialog.getCheckbox();
   	SCALEBAR_SIZE = Dialog.getNumber();
   	ADJUST_CONTRAST_MANUALLY = Dialog.getCheckbox();
-	DAVE_ROTATION = Dialog.getCheckbox();
+	DO_ROTATION = Dialog.getCheckbox();
 
 	PANEL_STRING_ARRAY = newArray();
 
@@ -416,10 +420,7 @@ function write_config(fpath){
 		panel_string_array_string = panel_string_array_string + PANEL_STRING_ARRAY[ii] + " ";		
 	}
 
-
-
-
-	print(cfg, nCHANNELS + " " + nPANELS + " " + EXP_TITLE+" "+DO_MONTAGE+" "+MAIN_ROI_SIZE+" "+DO_INSET+" "+INSET_ROI_SIZE+" "+DO_DIC_INSET+" "+DO_BURN_FILENAME+" "+DO_SCALEBAR+" "+SCALEBAR_SIZE+" "+CLOSE_ALL_AT_END+" "+PANEL1+" "+PANEL2+" "+PANEL3+" "+PANEL4+" "+ C1_STRING + " "+ C2_STRING + " " + C3_STRING + " " + C4_STRING +" " +ADJUST_CONTRAST_MANUALLY+" "+DAVE_ROTATION+" "+panel_string_array_string+" ");
+	print(cfg, nCHANNELS + " " + nPANELS + " " + EXP_TITLE+" "+DO_MONTAGE+" "+MAIN_ROI_SIZE+" "+DO_INSET+" "+INSET_ROI_SIZE+" "+DO_DIC_INSET+" "+DO_BURN_FILENAME+" "+DO_SCALEBAR+" "+SCALEBAR_SIZE+" "+CLOSE_ALL_AT_END+" "+PANEL1+" "+PANEL2+" "+PANEL3+" "+PANEL4+" "+ C1_STRING + " "+ C2_STRING + " " + C3_STRING + " " + C4_STRING +" " +ADJUST_CONTRAST_MANUALLY+" "+DO_ROTATION+" "+panel_string_array_string+" ");
 	File.close(cfg);
 }
 
@@ -449,7 +450,7 @@ function read_config(config_fpath){
 	C3_STRING = config_options[18];
 	C4_STRING = config_options[19];
 	ADJUST_CONTRAST_MANUALLY = config_options[20];
-	DAVE_ROTATION = config_options[21];
+	DO_ROTATION = config_options[21];
 
 	PANEL_STRING_ARRAY = newArray();
 	for(ii=1;ii<=nPANELS;ii++){
